@@ -1,7 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:mes_monitoring/components/pneumatic.dart';
+import 'package:mes_monitoring/components/proximity.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+import '../components/utils.dart';
 
 class TopViewPage extends StatefulWidget {
   const TopViewPage({super.key});
@@ -12,7 +21,7 @@ class TopViewPage extends StatefulWidget {
 
 class _TopViewPageState extends State<TopViewPage> {
   String currentTime = '';
-
+  GetStorage box = GetStorage();
   String _getCurrentTime() {
     DateTime now = DateTime.now();
     String formattedTime = '${_addZeroIfNeeded(now.hour)}:'
@@ -28,86 +37,139 @@ class _TopViewPageState extends State<TopViewPage> {
     return value.toString();
   }
 
-  int? currentBottle;
-  int? lastIndexBottle;
-  Timer? _timer;
-  String bottleState = 'assets/images/bottle_top_empty.png';
+  // double positionBottleTop = 393;
+  // double positionBottleLeft = 147;
 
-  void startTimer() {
-    bottleState = 'assets/images/bottle_top_empty.png';
-    const duration = Duration(milliseconds: 1); // Change the duration as needed
+  Map plcData = {
+    "AUTO": false,
+    "MANUAL": false,
+    "START": false,
+    "OPTIC_2": false,
+    "EMERGENCY": false,
+    "RESET": false,
+    "RETURN": false,
+    "PROXIMITY_1": false,
+    "PROXIMITY_2": false,
+    "S_A0": false,
+    "S_A1": false,
+    "S_B0": false,
+    "S_B1": false,
+    "S_RGB1": false,
+    "S_RGB2": false,
+    "OPTIC_1": false
+  };
 
-    _timer = Timer.periodic(duration, (timer) {
-      // Your function logic here
-      // Perform any action you want at specified intervals
-      setState(() {
-        if (top < 657) {
-          top = top + 1;
-        } else {
-          if (left < 1167) {
-            left = left + 1;
-          } else {
-            bottleState = 'assets/images/bottle_top_fill.png';
-            if (left < 1500) {
-              left = left + 1;
-            } else {
-              _timer?.cancel();
-            }
-          }
-        }
-        initialBottleLeft = Positioned(
-          top: top,
-          left: left,
-          child: SizedBox(
-            width: 112,
-            height: 112,
-            // color: Colors.red,
-            child: Image(
-              image: AssetImage(bottleState),
-              fit: BoxFit.fill,
-            ),
-          ),
-        );
-      });
+  Future<bool> controlPLC(bodyPost) async {
+    try {
+      String url = "http://192.168.18.80:8000";
+      if (box.read("url") != null) {
+        url = box.read("url");
+      }
+      final response = await http.post(
+        Uri.parse('$url/control'),
+        body: json.encode(bodyPost),
+        headers: {'Content-Type': 'application/json'},
+      );
+      var body = json.decode(response.body);
+      if (response.statusCode == 200) {
+        // Handle a successful POST response
+        debugPrint('Request success with message: ${body["message"]}');
+        return body["data"];
+      } else {
+        // Handle an error
+        debugPrint('Request failed with status: ${response.statusCode}');
+        Get.snackbar("Request failed with message",
+            "(${response.statusCode})${body["message"]}");
+        return false;
+      }
+    } catch (e) {
+      // Handle an error
+      debugPrint('Error: $e');
+      Get.snackbar("Error", "$e");
+      return false;
+    }
+  }
+
+  // Websocket
+  late IO.Socket socket;
+  int second = 180;
+  late Timer timerSocket;
+
+  void initSocket() {
+    socket = IO.io('http://localhost:8080', <String, dynamic>{
+      'transports': ['websocket'],
+    });
+
+    socket.onConnect((_) {
+      print('WebSocket connected');
+    });
+
+    socket.onDisconnect((_) {
+      print('WebSocket disconnected');
+    });
+
+    socket.connect();
+    initWebSocket();
+    startTimerSocket();
+  }
+
+  void initWebSocket() {
+    socket.on('initData', (data) {
+      print('WebSocket initData : $data');
+      plcData = data["data"];
+      timerSocket.cancel();
+    });
+    socket.on('distribution:update', (data) {
+      // print('WebSocket distribution:update : $data');
+      timerSocket.cancel();
+      if (data != null) {
+        setDataSocket(data);
+      }
     });
   }
 
-  void stopTimer() {
-    _timer?.cancel();
+  void startTimerSocket() {
+    const oneSec = Duration(seconds: 1);
+    timerSocket = Timer.periodic(oneSec, (timer) {
+      if (second > 0) {
+        setState(() {
+          second -= 1;
+        });
+      } else {
+        socket.emit('disconnect_request', []);
+        timer.cancel();
+      }
+    });
   }
 
-  void pushBottleLeft() {
-    if (_timer == null)
-      startTimer();
-    else
-      stopTimer();
+  Map lastData = {};
+  void setDataSocket(data) {
+    setState(() {
+      plcData = data;
+    });
+    if ((lastData["S_A0"] != plcData["S_A0"])) {
+      lastData["S_A0"] = data["S_A0"];
+      if (!data["S_A0"]) pushWhiteBottle();
+    }
+    if ((lastData["S_B0"] != plcData["S_B0"])) {
+      lastData["S_B0"] = data["S_B0"];
+      if (!data["S_B0"]) pushBlackBottle();
+    }
+    if ((lastData["PROXIMITY_1"] != plcData["PROXIMITY_1"])) {
+      lastData["PROXIMITY_1"] = data["PROXIMITY_1"];
+      if (data["PROXIMITY_1"]) stage2();
+    }
+    if ((lastData["PROXIMITY_2"] != plcData["PROXIMITY_2"])) {
+      lastData["PROXIMITY_2"] = data["PROXIMITY_2"];
+      if (data["PROXIMITY_2"]) stage3();
+    }
+
+    if (data["RESET"]) {
+      bottleProperties.clear();
+    }
   }
 
-  void pushBottleRight() {}
-
-  Widget initialBottleLeft = const Positioned(
-    top: 393,
-    left: 147,
-    child: SizedBox(
-      width: 112,
-      height: 112,
-      // color: Colors.red,
-      child: Image(
-        image: AssetImage('assets/images/bottle_top_empty.png'),
-        fit: BoxFit.fill,
-      ),
-    ),
-  );
-
-  List<Widget> bottle = [];
-  List bottlePositioned = [];
-
-  // var positioned = {"top": 393, "left": 147};
-  double top = 393;
-  double left = 147;
-  @override
-  void initState() {
-    super.initState();
+  void glockOClock() {
     // Update the time every second
     Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -116,28 +178,254 @@ class _TopViewPageState extends State<TopViewPage> {
         });
       }
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // WebSocket
+    initSocket();
+    glockOClock();
+  }
+
+  @override
+  void dispose() {
+    timerSocket.cancel();
+    socket.disconnect();
+
+    super.dispose();
+  }
+
+  List bottleProperties = [];
+  bool dispenserGlowUp = false;
+
+  int findIndex(stage) {
+    return bottleProperties.indexWhere(
+      (bottle) => bottle[stage] == false,
+    );
+  }
+
+  void pushBlackBottle() {
+    bottleProperties
+        .add({"left": 237, "top": 277, "duration": 750, "filled": "empty"});
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      setState(() {
+        bottleProperties[bottleProperties.length - 1] = {
+          "color": "black",
+          "left": 237,
+          "top": 465,
+          "duration": 1000,
+          "filled": "empty",
+          "stage1": false,
+          "stage2": false,
+          "stage3": false,
+          "stage4": false,
+          "stage5": false,
+        };
+      });
+    }).then((value) {
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        setState(() {
+          bottleProperties[bottleProperties.length - 1] = {
+            "color": "black",
+            "left": 535,
+            "top": 465,
+            "duration": 6000,
+            "filled": "empty",
+            "stage1": false,
+            "stage2": false,
+            "stage3": false,
+            "stage4": false,
+            "stage5": false,
+          };
+        });
+      });
+    });
+  }
+
+  void pushWhiteBottle() {
+    bottleProperties
+        .add({"left": 104, "top": 277, "duration": 750, "filled": "empty"});
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      setState(() {
+        bottleProperties[bottleProperties.length - 1] = {
+          "color": "white",
+          "left": 104,
+          "top": 465,
+          "duration": 500,
+          "filled": "empty",
+          "stage1": false,
+          "stage2": false,
+          "stage3": false,
+          "stage4": false,
+          "stage5": false,
+        };
+      });
+    }).then((value) {
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        setState(() {
+          bottleProperties[bottleProperties.length - 1] = {
+            "color": "white",
+            "left": 535,
+            "top": 465,
+            "duration": 6000,
+            "filled": "empty",
+            "stage1": false,
+            "stage2": false,
+            "stage3": false,
+            "stage4": false,
+            "stage5": false,
+          };
+        });
+      });
+    });
+  }
+
+  void stage2() {
+    int index = findIndex("stage1");
+    print("stage1: $index");
+    if (index >= 0) {
+      setState(() {
+        bottleProperties[index] = {
+          "color": bottleProperties[index]["color"],
+          "left": 625,
+          "top": 465,
+          "duration": 2750,
+          "filled": "empty",
+          "stage1": true,
+          "stage2": false,
+          "stage3": false,
+          "stage4": false,
+          "stage5": false,
+        };
+      });
+    }
+  }
+
+  void stage3() {
+    int index = findIndex("stage2");
+    print("stage2: $index");
+    if (index >= 0) {
+      setState(() {
+        bottleProperties[index] = {
+          "color": bottleProperties[index]["color"],
+          "left": 756,
+          "top": 465,
+          "duration": 2750,
+          "filled": "empty",
+          "stage1": true,
+          "stage2": true,
+          "stage3": false,
+          "stage4": false,
+          "stage5": false,
+        };
+      });
+      Future.delayed(new Duration(milliseconds: 2750), () {
+        stage4();
+      });
+    }
+  }
+
+  void stage4() {
+    int index = findIndex("stage3");
+    print("stage3: $index");
     setState(() {
-      bottle.add(Positioned(
-        // top: positioned["top"] as double,
-        top: top,
-        left: left,
-        // left: positioned["left"] as double,
-        child: SizedBox(
-          width: 112,
-          height: 112,
-          // color: Colors.red,
-          child: Image(
-            image: AssetImage(bottleState),
-            fit: BoxFit.fill,
-          ),
-        ),
-      ));
+      dispenserGlowUp = true;
+    });
+    Future.delayed(const Duration(milliseconds: 3000), () async {
+      if (index >= 0) {
+        setState(() {
+          dispenserGlowUp = false;
+          bottleProperties[index] = {
+            "color": bottleProperties[index]["color"],
+            "left": 756,
+            "top": 465,
+            "duration": 2750,
+            "filled": "fill",
+            "stage1": true,
+            "stage2": true,
+            "stage3": true,
+            "stage4": false,
+            "stage5": false,
+          };
+        });
+        if (bottleProperties[index]["color"] == "black") {
+          await Future.delayed(const Duration(milliseconds: 3000), () {
+            setState(() {
+              dispenserGlowUp = true;
+            });
+          });
+          await Future.delayed(const Duration(milliseconds: 3000), () {
+            setState(() {
+              dispenserGlowUp = false;
+              bottleProperties[index] = {
+                "color": bottleProperties[index]["color"],
+                "left": 756,
+                "top": 465,
+                "duration": 2750,
+                "filled": "fill",
+                "stage1": true,
+                "stage2": true,
+                "stage3": true,
+                "stage4": false,
+                "stage5": false,
+              };
+            });
+          });
+          stage5();
+        } else {
+          stage5();
+        }
+      }
+    });
+  }
+
+  void stage5() {
+    int index = findIndex("stage4");
+    print("stage4: $index");
+    if (index >= 0) {
+      setState(() {
+        bottleProperties[index] = {
+          "left": 1065,
+          "top": 465,
+          "duration": 5000,
+          "filled": "fill",
+          "stage1": true,
+          "stage2": true,
+          "stage3": true,
+          "stage4": true,
+          "stage5": false,
+        };
+      });
+    }
+    Future.delayed(const Duration(milliseconds: 5000), () {
+      print("stage5: $index");
+      if (index >= 0) {
+        setState(() {
+          bottleProperties[index] = {
+            "left": 1065,
+            "top": 25,
+            "duration": 8000,
+            "filled": "fill",
+            "stage1": true,
+            "stage2": true,
+            "stage3": true,
+            "stage4": true,
+            "stage5": true,
+          };
+        });
+      }
+      // Future.delayed(const Duration(milliseconds: 3500), () {
+      //   print(index);
+      //   setState(() {
+      //     bottleProperties.removeAt(index);
+      //   });
+      // });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    AssetImage backgroundImage = const AssetImage('assets/images/Meja.png');
     return Scaffold(
       // appBar: AppBar(
       //   backgroundColor: const Color.fromRGBO(2, 42, 94, 0.7),
@@ -147,9 +435,9 @@ class _TopViewPageState extends State<TopViewPage> {
         fit: StackFit.expand,
         children: [
           Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               image: DecorationImage(
-                image: backgroundImage,
+                image: AssetImage('assets/images/Meja.png'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -178,9 +466,45 @@ class _TopViewPageState extends State<TopViewPage> {
                   _buildCurrentTimeWidget(),
                 ],
               ),
+              actions: [
+                PopupMenuButton<String>(
+                  itemBuilder: (BuildContext context) {
+                    return <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'option1',
+                        child: Text('ATUR URL'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'option2',
+                        child: Text('INPUT BOX'),
+                      ),
+                    ];
+                  },
+                  onSelected: (String choice) {
+                    if (choice == "option1") {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return SetUrlDialog(); // Custom dialog widget
+                        },
+                      );
+                    } else if (choice == "option2") {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return const SetBoxDialog(); // Custom dialog widget
+                        },
+                      ).then((value) async {
+                        print(value);
+                        if (value != null) await controlPLC(value);
+                      });
+                    }
+                  },
+                ),
+              ],
             ),
             body: Center(
-              child: Container(
+              child: SizedBox(
                 width: MediaQuery.of(context)
                     .size
                     .width, // Adjust container size as needed
@@ -188,29 +512,254 @@ class _TopViewPageState extends State<TopViewPage> {
                 child: Stack(
                   // fit: StackFit.expand,
                   children: [
-                    Image(
+                    // PNEUMATIC LEFT
+                    PneumaticLeftComponent(active: !plcData["S_A0"]),
+                    // PNEUMATIC RIGHT
+                    PneumaticRightComponent(active: !plcData["S_B0"]),
+
+                    const Image(
                       image: AssetImage('assets/images/top_empty.png'),
                       fit: BoxFit
                           .cover, // Fill the available space while maintaining aspect ratio
                     ),
+                    ...(bottleProperties.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      return AnimatedPositioned(
+                          duration: Duration(
+                            milliseconds: bottleProperties[index]["duration"],
+                          ),
+                          left: bottleProperties[index]["left"].toDouble(),
+                          top: bottleProperties[index]["top"].toDouble(),
+                          child: SizedBox(
+                              width: 79,
+                              height: 79,
+                              child: Image(
+                                image: AssetImage(
+                                    'assets/images/bottle_top_${bottleProperties[index]["filled"]}.png'),
+                                fit: BoxFit.contain,
+                              )));
+                    }).toList()),
+                    // AnimatedPositioned(
+                    //     duration: Duration(
+                    //       milliseconds: 100,
+                    //     ),
+                    //     left: 104,
+                    //     top: 277,
+                    //     child: SizedBox(
+                    //         width: 79,
+                    //         height: 79,
+                    //         child: Image(
+                    //           image: AssetImage(
+                    //               'assets/images/bottle_top_empty.png'),
+                    //           fit: BoxFit.contain,
+                    //         ))),
+                    // Positioned(
+                    //     top: 10,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 1",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         pushWhiteBottle();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 50,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 1B",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         pushBlackBottle();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 65,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 2",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage2();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 130,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 3",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage3();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 200,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 4",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage4();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 275,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 5",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage5();
+                    //       },
+                    //     )),
+                    // PROXIMITY1
+                    ProximityComponent1(active: !plcData["PROXIMITY_1"]),
+                    ProximityComponent2(active: !plcData["PROXIMITY_2"]),
                     Positioned(
-                      top: 10,
-                      child: IconButton(
-                          onPressed: () {
-                            pushBottleLeft();
-                          },
-                          icon: Icon(Icons.play_arrow)),
-                    ),
-                    // ...bottle,
-                    initialBottleLeft,
-                    Positioned(
-                      top: 255,
+                      top: 215,
                       right: 320,
                       child: Container(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Image(
+                        decoration: dispenserGlowUp
+                            ? BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.greenAccent.withOpacity(0.5),
+                                    spreadRadius: 5,
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 0),
+                                  ),
+                                ],
+                              )
+                            : null,
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: const Image(
                           image: AssetImage('assets/images/dispenser_top.png'),
                           fit: BoxFit.fill,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                        left: 104,
+                        top: 277,
+                        child: Container(
+                            decoration: (!plcData["OPTIC_1"] &&
+                                    !plcData["S_RGB1"])
+                                ? BoxDecoration(
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.redAccent.withOpacity(0.5),
+                                        spreadRadius: 15,
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 0),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            width: 79,
+                            height: 79,
+                            child: const Image(
+                              image: AssetImage(
+                                  'assets/images/bottle_top_empty.png'),
+                              fit: BoxFit.contain,
+                            ))),
+                    Positioned(
+                        left: 237,
+                        top: 277,
+                        child: Container(
+                            decoration: (!plcData["OPTIC_2"] &&
+                                    !plcData["S_RGB2"])
+                                ? BoxDecoration(
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.redAccent.withOpacity(0.5),
+                                        spreadRadius: 15,
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 0),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            width: 79,
+                            height: 79,
+                            child: const Image(
+                              image: AssetImage(
+                                  'assets/images/bottle_top_empty.png'),
+                              fit: BoxFit.contain,
+                            ))),
+                    Positioned(
+                      top: 27,
+                      right: 220,
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white, // Set the background color
+                          borderRadius: BorderRadius.circular(
+                              20.0), // Set the border radius
+                        ),
+                        child: Wrap(
+                          spacing: 20,
+                          alignment: WrapAlignment.spaceBetween,
+                          children: [
+                            CircularButton(
+                              onPressed: () async {
+                                var isDone =
+                                    await controlPLC({"START_INPUT": true});
+                                if (isDone) {
+                                  await controlPLC({"START_INPUT": false});
+                                }
+                              },
+                              text: "START",
+                              buttonColor: Colors.green,
+                              buttonSize: 100,
+                              isOn: plcData["START"],
+                            ),
+                            CircularButton(
+                              onPressed: () async {
+                                var isDone =
+                                    await controlPLC({"RESET_INPUT": true});
+                                if (isDone) {
+                                  await controlPLC({"RESET_INPUT": false});
+                                }
+                              },
+                              isOn: plcData["RESET"],
+                              text: "RESET",
+                              buttonColor: Colors.orange,
+                              buttonSize: 100,
+                            ),
+                            CircularButton(
+                              onPressed: () async {
+                                var isDone =
+                                    await controlPLC({"RETURN_INPUT": true});
+                                if (isDone) {
+                                  await controlPLC({"RETURN_INPUT": false});
+                                }
+                              },
+                              isOn: plcData["RETURN"],
+                              text: "RETURN",
+                              buttonColor: Colors.yellow,
+                              buttonSize: 100,
+                            ),
+                            CircularButton(
+                              isOn: plcData["EMERGENCY"],
+                              onPressed: () async {},
+                              text: "EMG",
+                              buttonColor: Colors.red,
+                              buttonSize: 100,
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -239,4 +788,57 @@ Widget _buildCurrentTimeWidget() {
       },
     ),
   );
+}
+
+class CircularButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final String text;
+  final double buttonSize;
+  final Color borderColor;
+  final Color buttonColor;
+  final bool isOn;
+
+  const CircularButton({
+    super.key,
+    required this.onPressed,
+    required this.text,
+    required this.buttonColor,
+    this.buttonSize = 50.0,
+    this.borderColor = Colors.grey,
+    this.isOn = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      child: Container(
+        width: buttonSize,
+        height: buttonSize,
+        decoration: BoxDecoration(
+          color: buttonColor,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: borderColor,
+            width: 8.0, // Adjust the border width as needed
+          ),
+          boxShadow: [
+            if (isOn) ...[
+              BoxShadow(
+                  color: buttonColor, // Adjust the shadow color as needed
+                  blurRadius: 10, // Adjust the blur radius for the glow effect
+                  spreadRadius:
+                      2, // Adjust the spread radius for the glow effect
+                  blurStyle: BlurStyle.solid),
+            ]
+          ],
+        ),
+        child: Center(
+            child: Text(
+          text,
+          style: const TextStyle(color: Colors.white, fontSize: 20),
+        )),
+      ),
+    );
+  }
 }

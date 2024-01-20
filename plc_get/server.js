@@ -1,70 +1,155 @@
 var mc = require("mcprotocol");
 var conn = new mc();
+
+const connection = require("./config/database");
+
+var variables = {
+  X0_INPUT: "X0,16",
+  START_INPUT: "X2",
+  RESET_INPUT: "X5",
+  RETURN_INPUT: "X6",
+  MEMORY_BLACK: "D1",
+  MEMORY_WHITE: "D2",
+};
+var variablesRead = {
+  X0_INPUT: "X0,16",
+};
 var doneReading = false;
 var doneWriting = false;
+var plcConnected = false;
 
-// var variables = { TEST1: 'D0,5', 	// 5 words starting at D0
-// 	  TEST2: 'M6990,28', 			// 28 bits at M6990
-// 	  TEST3: 'CN199,2',			// ILLEGAL as CN199 is 16-bit, CN200 is 32-bit, must request separately
-// 	  TEST4: 'R2000,2',			// 2 words at R2000
-// 	  TEST5: 'X034',				// Simple input
-// 	  TEST6: 'D6000.1,20',			// 20 bits starting at D6000.1
-// 	  TEST7: 'D6001.2',				// Single bit at D6001
-// 	  TEST8: 'S4,2',				// 2 bits at S4
-// 	  TEST9: 'RFLOAT5000,40'		// 40 floating point numbers at R5000
-// };										// See setTranslationCB below for more examples
-var variables = {
-  TEST1: "D100,5", // 5 words starting at D0
-  TEST2: "M6990,28", // 28 bits at M6990
-  TEST3: "CN199,2", // ILLEGAL as CN199 is 16-bit, CN200 is 32-bit, must request separately
-  TEST4: "R2000,2", // 2 words at R2000
-  TEST5: "X034", // Simple input
-  TEST6: "D6000.1,20", // 20 bits starting at D6000.1
-  TEST7: "D6001.2", // Single bit at D6001
-  TEST8: "S4,2", // 2 bits at S4
-  TEST9: "RFLOAT5000,40", // 40 floating point numbers at R5000
-}; // See setTranslationCB below for more examples
-
-conn.initiateConnection(
-  { port: 10000, host: "192.168.3.39", ascii: false },
-  connected
+connection(
+  conn.initiateConnection(
+    { port: 10000, host: "192.168.3.39", ascii: false },
+    connected
+  )
 );
 
 function connected(err) {
   if (typeof err !== "undefined") {
     // We have an error.  Maybe the PLC is not reachable.
     console.log(err);
-    process.exit();
+    // process.exit();
+  } else {
+    plcConnected = true;
+    conn.setTranslationCB(function (tag) {
+      return variables[tag];
+    });
+    conn.addItems(Object.keys(variablesRead));
+    setInterval(() => {
+      if (doneWriting) conn.readAllItems(valuesReady);
+    }, 100);
   }
-  conn.setTranslationCB(function (tag) {
-    return variables[tag];
-  }); // This sets the "translation" to allow us to work with object names defined in our app not in the module
-  conn.addItems(["TEST1", "TEST4"]);
-  conn.addItems("TEST6");
-  //	conn.removeItems(['TEST2', 'TEST3']);  // We could do this.
-  //	conn.writeItems(['TEST5', 'TEST7'], [ true, true ], valuesWritten);  	// You can write an array of items as well.
-  conn.writeItems("TEST4", [666, 777], valuesWritten); // You can write a single array item too.
-  conn.readAllItems(valuesReady);
+}
+const express = require("express");
+const app = express();
+const port = 8000;
+app.use(express.json());
+app.listen(port, () => {
+  console.log(`Server is running on ${port}`);
+});
+app.post("/control", (req, res) => {
+  try {
+    if (plcConnected) {
+      doneWriting = false;
+      const { body } = req;
+
+      // conn.writeItems(Object.keys(body), Object.values(body), (anythingBad) => {
+      //   valuesWritten(anythingBad, res);
+      // });
+      // conn.writeItems([body.key], [body.value], (anythingBad) => {
+      //   valuesWritten(anythingBad, res);
+      // });
+    } else {
+      res.status(500).send({
+        status: "error",
+        message: "PLC NOT CONNECTED",
+      });
+    }
+  } catch (error) {
+    res.status(500).send({
+      status: "error",
+      message: error.toString(),
+    });
+  }
+});
+
+function valuesWritten(anythingBad, res) {
+  try {
+    if (anythingBad) {
+      console.log("SOMETHING WENT WRONG WRITING VALUES!!!!");
+      res.status(500).send({
+        status: "error",
+        message: "SOMETHING WENT WRONG WRITING VALUES!!!!",
+        data: doneWriting,
+      });
+    }
+    console.log("Done writing.");
+    doneWriting = true;
+    res.status(200).send({
+      status: "ok",
+      message: "done",
+      data: doneWriting,
+    });
+    // if (doneReading) {
+    //   process.exit();
+    // }
+  } catch (error) {
+    console.log(error);
+  }
 }
 
-function valuesReady(anythingBad, values) {
+const DistributionStation = require("./model/DistributionStation");
+const BottleCounting = require("./model/BottleCounting");
+const Monitoring = require("./model/Monitoring");
+const { convertNumberToAlphabet, checkForChanges } = require("./utils");
+
+let lastVariableValues = {};
+async function valuesReady(anythingBad, values) {
   if (anythingBad) {
     console.log("SOMETHING WENT WRONG READING VALUES!!!!");
   }
-  console.log(values);
-  doneReading = true;
-  if (doneWriting) {
-    process.exit();
-  }
-}
+  const x_input = {};
+  values.X0_INPUT.forEach((value, index) => {
+    const key = `${convertNumberToAlphabet(index)}`; // Generating key names like X0_0, X0_1, ...
+    x_input[key] = value; // Assigning values to keys
+  });
+  values = {
+    ...values,
+    ...x_input,
+  };
+  delete values.X0_INPUT;
 
-function valuesWritten(anythingBad) {
-  if (anythingBad) {
-    console.log("SOMETHING WENT WRONG WRITING VALUES!!!!");
+  if (checkForChanges(lastVariableValues, values)) {
+    console.log(new Date(), values);
+    let color = "";
+    if (!values.S_A0) {
+      color = "white";
+    }
+    if (!values.S_B0) {
+      color = "black";
+    }
+    await new BottleCounting({
+      color: color,
+    }).save();
+    await new DistributionStation(values).save();
+    await Monitoring.findOneAndUpdate(
+      {
+        station: "distribution",
+      },
+      {
+        station: "distribution",
+        data: values,
+        updated_at: Date.now(),
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+    lastVariableValues = values;
+  } else {
+    lastVariableValues = values;
   }
-  console.log("Done writing.");
-  doneWriting = true;
-  if (doneReading) {
-    process.exit();
-  }
+  doneReading = true;
+  // if (doneWriting) {
+  //   process.exit();
+  // }
 }

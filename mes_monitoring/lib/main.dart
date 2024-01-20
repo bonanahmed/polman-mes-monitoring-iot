@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:mes_monitoring/view/main_page.dart';
 import 'package:mes_monitoring/view/side_view_page.dart';
 import 'package:mes_monitoring/view/top_view_page.dart';
 
-void main() {
+void main() async {
+  await GetStorage.init();
   runApp(const MyApp());
 }
 
@@ -20,7 +22,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
-          appBarTheme: AppBarTheme(
+          appBarTheme: const AppBarTheme(
             iconTheme: IconThemeData(
               color: Colors.white, // Change this color to the desired color
             ),
@@ -28,9 +30,9 @@ class MyApp extends StatelessWidget {
         ),
         initialRoute: '/',
         getPages: [
-          GetPage(name: '/', page: () => MainPage()),
-          GetPage(name: '/top', page: () => TopViewPage()),
-          GetPage(name: '/side', page: () => SideViewPage()),
+          GetPage(name: '/', page: () => const MainPage()),
+          GetPage(name: '/top', page: () => const TopViewPage()),
+          GetPage(name: '/side', page: () => const SideViewPage()),
         ],
         home: const MainPage());
   }

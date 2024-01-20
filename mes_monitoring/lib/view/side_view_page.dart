@@ -52,14 +52,14 @@ class _SideViewPageState extends State<SideViewPage> {
 
   void pushBottleRight() {}
 
-  Widget initialBottleLeft = Positioned(
+  Widget initialBottleLeft = const Positioned(
     top: 393,
     left: 147,
-    child: Container(
+    child: SizedBox(
       width: 112,
       height: 112,
       // color: Colors.red,
-      child: const Image(
+      child: Image(
         image: AssetImage('assets/images/bottle_top_empty.png'),
         fit: BoxFit.fill,
       ),
@@ -67,14 +67,14 @@ class _SideViewPageState extends State<SideViewPage> {
   );
 
   List<Widget> bottle = [
-    Positioned(
+    const Positioned(
       top: 540,
       left: 210,
-      child: Container(
+      child: SizedBox(
         width: 112,
         height: 112,
         // color: Colors.red,
-        child: const Image(
+        child: Image(
           image: AssetImage('assets/images/bottle_side.png'),
           fit: BoxFit.fill,
         ),
@@ -85,7 +85,6 @@ class _SideViewPageState extends State<SideViewPage> {
 
   @override
   Widget build(BuildContext context) {
-    AssetImage backgroundImage = const AssetImage('assets/images/Meja.png');
     return Scaffold(
       // appBar: AppBar(
       //   backgroundColor: const Color.fromRGBO(2, 42, 94, 0.7),
@@ -95,7 +94,7 @@ class _SideViewPageState extends State<SideViewPage> {
         fit: StackFit.expand,
         children: [
           Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Color.fromRGBO(2, 42, 94, 0.7),
               // image: DecorationImage(
               //   image: backgroundImage,
@@ -141,16 +140,16 @@ class _SideViewPageState extends State<SideViewPage> {
                     Positioned(
                       top: 180,
                       left: 170,
-                      child: Container(
+                      child: SizedBox(
                         height: MediaQuery.of(context).size.height * 0.5,
-                        child: Image(
+                        child: const Image(
                           image: AssetImage('assets/images/magazine_side.png'),
                           fit: BoxFit.fill,
                         ),
                       ),
                     ),
                     ...bottle,
-                    Image(
+                    const Image(
                       image: AssetImage('assets/images/side_empty.png'),
                       fit: BoxFit
                           .cover, // Fill the available space while maintaining aspect ratio

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/route_manager.dart';
 import 'package:intl/intl.dart';
+import 'package:mes_monitoring/components/utils.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -86,6 +87,28 @@ class _MainPageState extends State<MainPage> {
                   _buildCurrentTimeWidget(),
                 ],
               ),
+              actions: [
+                PopupMenuButton<String>(
+                  itemBuilder: (BuildContext context) {
+                    return <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'option1',
+                        child: Text('ATUR URL'),
+                      ),
+                    ];
+                  },
+                  onSelected: (String choice) {
+                    if (choice == "option1") {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return SetUrlDialog(); // Custom dialog widget
+                        },
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
             body: Center(
               child: Column(
@@ -130,30 +153,30 @@ class _MainPageState extends State<MainPage> {
                           ),
                         ],
                       ),
-                      Column(
-                        children: [
-                          InkWell(
-                            onTap: () {
-                              Get.toNamed("/side");
-                            },
-                            child: ClipRRect(
-                                borderRadius: BorderRadius.circular(25),
-                                child: Image.asset(
-                                  "assets/images/bottom.png",
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.45,
-                                )),
-                          ),
-                          const Text(
-                            'Tampak Samping',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 32.0,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      )
+                      // Column(
+                      //   children: [
+                      //     InkWell(
+                      //       onTap: () {
+                      //         Get.toNamed("/side");
+                      //       },
+                      //       child: ClipRRect(
+                      //           borderRadius: BorderRadius.circular(25),
+                      //           child: Image.asset(
+                      //             "assets/images/bottom.png",
+                      //             width:
+                      //                 MediaQuery.of(context).size.width * 0.45,
+                      //           )),
+                      //     ),
+                      //     const Text(
+                      //       'Tampak Samping',
+                      //       textAlign: TextAlign.center,
+                      //       style: TextStyle(
+                      //           color: Colors.white,
+                      //           fontSize: 32.0,
+                      //           fontWeight: FontWeight.bold),
+                      //     ),
+                      //   ],
+                      // )
                     ],
                   )
                 ],
