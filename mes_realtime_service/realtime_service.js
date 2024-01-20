@@ -20,7 +20,12 @@ mongoose.connect(
 let db = mongoose.connection;
 
 // config socketio
-const allowlist = ["http://localhost:3000/", "http://127.0.0.1:3000/"];
+const allowlist = [
+  "http://localhost:3000/",
+  "http://127.0.0.1:3000/",
+  "http://192.168.235.125:3000/",
+  "*",
+];
 
 const options = {
   cors: {
@@ -29,7 +34,8 @@ const options = {
 };
 app.use(cors(options));
 const allowCrossDomain = (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:3000"); // allow requests from any other server
+  // res.header("Access-Control-Allow-Origin", "http://localhost:3000"); // allow requests from any other server
+  res.header("Access-Control-Allow-Origin", "*"); // allow requests from any other server
   res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE"); // allow these verbs
   res.header("Access-Control-Allow-Credentials", true);
   res.header(

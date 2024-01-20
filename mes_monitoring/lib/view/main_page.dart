@@ -118,7 +118,7 @@ class _MainPageState extends State<MainPage> {
                   Container(
                     margin: const EdgeInsets.only(bottom: 35, top: 75),
                     child: const Text(
-                      'Station View',
+                      'Distribution and Filling Station',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           color: Colors.white,
@@ -144,7 +144,31 @@ class _MainPageState extends State<MainPage> {
                                 )),
                           ),
                           const Text(
-                            'Tampak Atas',
+                            'Kontrol dan Monitoring',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 32.0,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              Get.toNamed("/summary");
+                            },
+                            child: ClipRRect(
+                                borderRadius: BorderRadius.circular(25),
+                                child: Image.asset(
+                                  "assets/images/top.png",
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.45,
+                                )),
+                          ),
+                          const Text(
+                            'Rekapitulasi Data',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 color: Colors.white,

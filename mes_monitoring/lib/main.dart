@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:mes_monitoring/view/main_page.dart';
 import 'package:mes_monitoring/view/side_view_page.dart';
+import 'package:mes_monitoring/view/summary_page.dart';
 import 'package:mes_monitoring/view/top_view_page.dart';
 
 void main() async {
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
           GetPage(name: '/', page: () => const MainPage()),
           GetPage(name: '/top', page: () => const TopViewPage()),
           GetPage(name: '/side', page: () => const SideViewPage()),
+          GetPage(name: '/summary', page: () => const SummaryPage()),
         ],
         home: const MainPage());
   }

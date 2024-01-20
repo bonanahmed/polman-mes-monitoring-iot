@@ -31,6 +31,7 @@ function connected(err) {
     console.log(err);
     // process.exit();
   } else {
+    doneWriting = true;
     plcConnected = true;
     conn.setTranslationCB(function (tag) {
       return variables[tag];
@@ -54,9 +55,9 @@ app.post("/control", (req, res) => {
       doneWriting = false;
       const { body } = req;
 
-      // conn.writeItems(Object.keys(body), Object.values(body), (anythingBad) => {
-      //   valuesWritten(anythingBad, res);
-      // });
+      conn.writeItems(Object.keys(body), Object.values(body), (anythingBad) => {
+        valuesWritten(anythingBad, res);
+      });
       // conn.writeItems([body.key], [body.value], (anythingBad) => {
       //   valuesWritten(anythingBad, res);
       // });
@@ -105,6 +106,8 @@ const Monitoring = require("./model/Monitoring");
 const { convertNumberToAlphabet, checkForChanges } = require("./utils");
 
 let lastVariableValues = {};
+let whiteCounting = 0;
+let blackCounting = 0;
 async function valuesReady(anythingBad, values) {
   if (anythingBad) {
     console.log("SOMETHING WENT WRONG READING VALUES!!!!");
@@ -121,17 +124,30 @@ async function valuesReady(anythingBad, values) {
   delete values.X0_INPUT;
 
   if (checkForChanges(lastVariableValues, values)) {
-    console.log(new Date(), values);
+    // console.log(new Date(), values);
     let color = "";
     if (!values.S_A0) {
       color = "white";
+      whiteCounting++;
+    } else {
+      whiteCounting = 0;
     }
     if (!values.S_B0) {
       color = "black";
+      blackCounting++;
+    } else {
+      blackCounting = 0;
     }
-    await new BottleCounting({
-      color: color,
-    }).save();
+    if (color && whiteCounting === 1) {
+      await new BottleCounting({
+        color,
+      }).save();
+    }
+    if (color && blackCounting === 1) {
+      await new BottleCounting({
+        color,
+      }).save();
+    }
     await new DistributionStation(values).save();
     await Monitoring.findOneAndUpdate(
       {
