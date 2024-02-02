@@ -547,76 +547,76 @@ class _TopViewPageState extends State<TopViewPage> {
                                 fit: BoxFit.contain,
                               )));
                     }).toList()),
-                    Positioned(
-                        top: 10,
-                        child: TextButton(
-                          child: const Text(
-                            "STAGE 1",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            pushWhiteBottle();
-                          },
-                        )),
-                    Positioned(
-                        top: 50,
-                        child: TextButton(
-                          child: const Text(
-                            "STAGE 1B",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            pushBlackBottle();
-                          },
-                        )),
-                    Positioned(
-                        top: 10,
-                        left: 65,
-                        child: TextButton(
-                          child: const Text(
-                            "STAGE 2",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            stage2();
-                          },
-                        )),
-                    Positioned(
-                        top: 10,
-                        left: 130,
-                        child: TextButton(
-                          child: const Text(
-                            "STAGE 3",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            stage3();
-                          },
-                        )),
-                    Positioned(
-                        top: 10,
-                        left: 200,
-                        child: TextButton(
-                          child: const Text(
-                            "STAGE 4",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            stage4();
-                          },
-                        )),
-                    Positioned(
-                        top: 10,
-                        left: 275,
-                        child: TextButton(
-                          child: const Text(
-                            "STAGE 5",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            stage5();
-                          },
-                        )),
+                    // Positioned(
+                    //     top: 10,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 1",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         pushWhiteBottle();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 50,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 1B",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         pushBlackBottle();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 65,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 2",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage2();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 130,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 3",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage3();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 200,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 4",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage4();
+                    //       },
+                    //     )),
+                    // Positioned(
+                    //     top: 10,
+                    //     left: 275,
+                    //     child: TextButton(
+                    //       child: const Text(
+                    //         "STAGE 5",
+                    //         style: TextStyle(color: Colors.white),
+                    //       ),
+                    //       onPressed: () {
+                    //         stage5();
+                    //       },
+                    //     )),
                     // PROXIMITY1
                     ProximityComponent1(active: !plcData["PROXIMITY_1"]),
                     ProximityComponent2(active: !plcData["PROXIMITY_2"]),
